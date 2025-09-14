@@ -6,3 +6,17 @@ npm run dev
 npm run dev:full
 http://localhost:5173/
 taskkill /F /IM node.exe
+
+
+
+# 1. 克隆项目
+git clone https://github.com/chenpipi0807/PIP-Media-browsing-tool.git
+
+# 2. 进入项目目录
+cd PIP-Media-browsing-tool
+
+# 3. 安装依赖
+npm install
+
+# 4. 启动项目
+npm run dev:full
