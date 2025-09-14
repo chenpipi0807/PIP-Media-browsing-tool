@@ -1,0 +1,8 @@
+node -v
+npm -v
+npm install
+npm run server
+npm run dev
+npm run dev:full
+http://localhost:5173/
+taskkill /F /IM node.exe

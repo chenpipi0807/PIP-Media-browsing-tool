@@ -1,0 +1,25 @@
+# Python requirements for development environment
+# This project is primarily a frontend project, but here are some useful Python tools
+
+# Node.js and npm are required for this project
+# Please install Node.js (which includes npm) from https://nodejs.org/
+
+# For development environment
+nodejs>=18.0.0  # Required for running the React application
+npm>=9.0.0      # Node Package Manager
+
+# The following are the project dependencies from package.json:
+# react: ^19.1.1
+# react-dom: ^19.1.1
+# @types/node: ^22.14.0
+# typescript: ~5.8.2
+# vite: ^6.2.0
+
+# To install all the JavaScript dependencies, run:
+# npm install
+
+# For development server, run:
+# npm run dev
+
+# To build for production:
+# npm run build
