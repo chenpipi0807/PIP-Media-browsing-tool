@@ -7,6 +7,18 @@ npm run dev:full
 http://localhost:5173/
 taskkill /F /IM node.exe
 
+# 启动所有服务
+npm run start:all
+
+
+# 允许后端端口
+netsh advfirewall firewall add rule name="PIP-Media-Backend" dir=in action=allow protocol=TCP localport=3001
+
+# 允许前端端口  
+netsh advfirewall firewall add rule name="PIP-Media-Frontend" dir=in action=allow protocol=TCP localport=5173
+
+
+
 
 
 # 1. 克隆项目
