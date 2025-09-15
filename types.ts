@@ -17,4 +17,7 @@ export interface User {
 export interface ImagesApiResponse {
   items: ImageItem[];
   nextCursor: string | null;
+  total?: number;
+  currentPage?: number;
+  totalPages?: number;
 }

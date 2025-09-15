@@ -3,11 +3,7 @@ import type { ImageItem, User, ImagesApiResponse } from '../types';
 // 动态获取API基础URL
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname;
-  // 如果是localhost或127.0.0.1，使用localhost
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:3001';
-  }
-  // 否则使用当前主机名
+  // 直接使用当前主机名，不做特殊处理
   return `http://${hostname}:3001`;
 };
 
@@ -25,6 +21,18 @@ const getFavoritesForUser = async (username: string): Promise<Set<string>> => {
   } catch (error) {
     console.error('获取收藏数据失败:', error);
     return new Set();
+  }
+};
+
+const getFavoriteCount = async (username: string): Promise<number> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/favorites/${username.toLowerCase()}`);
+    if (!response.ok) return 0;
+    const data = await response.json();
+    return (data.favorites || []).length;
+  } catch (error) {
+    console.error('获取收藏数量失败:', error);
+    return 0;
   }
 };
 
@@ -111,9 +119,16 @@ export const api = {
       }
 
       // 从后端获取图片列表
-      const response = await fetch(
-        `${API_BASE_URL}/api/images?cursor=${cursor || '0'}&limit=${limit}`
-      );
+      const params = new URLSearchParams({
+        cursor: cursor || '0',
+        limit: limit?.toString() || '20'
+      });
+      
+      if (favUser) {
+        params.append('favUser', favUser);
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/api/images?${params}`);
 
       if (!response.ok) {
         throw new Error('获取图片列表失败');
@@ -128,10 +143,7 @@ export const api = {
 
       const userFavorites = await getFavoritesForUser(viewingUser);
       
-      // 如果是查看特定用户的收藏，过滤出收藏的图片
-      if (favUser) {
-        sourceImages = sourceImages.filter((img: ImageItem) => userFavorites.has(img.id));
-      }
+      // 注意：收藏过滤现在在后端处理，这里不需要再过滤
 
       // 为图片添加收藏状态并修复URL
       const itemsWithFullUrls = sourceImages.map((img: ImageItem) => ({
@@ -173,6 +185,10 @@ export const api = {
       console.error('切换收藏状态失败:', error);
       throw error;
     }
+  },
+
+  getFavoriteCount: async (username: string): Promise<number> => {
+    return await getFavoriteCount(username);
   },
 
   getUsers: async (): Promise<string[]> => {

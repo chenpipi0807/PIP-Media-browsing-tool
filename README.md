@@ -1,6 +1,6 @@
 # PIP 媒体浏览工具
 
-一个基于 React + Node.js 的本地媒体浏览器，仿照 Pinterest 的瀑布流布局。支持图片和视频文件浏览、多用户收藏、管理员路径配置、无密码登录和实时收藏持久化，非常适合在本地网络环境中快速搭建个人或家庭的媒体分享墙。
+一个基于 React + Node.js 的本地媒体数据筛选，仿照 Pinterest 的瀑布流布局。支持图片和视频文件浏览、多用户收藏、管理员路径配置、无密码登录和实时收藏持久化，非常适合在本地网络环境中快速搭建个人或家庭的媒体分享墙。
 
 <img width="3816" height="1998" alt="image" src="https://github.com/user-attachments/assets/dfce6adc-eb1e-4ab1-b9a7-d41f835ad618" />
 
@@ -51,7 +51,7 @@
     npm run dev
     ```
 
-4.  **访问应用**: 打开浏览器访问 `http://localhost:5173`
+4.  **访问应用**: 打开数据筛选访问 `http://localhost:5173`
 
 ## 📖 使用指南
 

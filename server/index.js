@@ -75,34 +75,45 @@ const getMediaInfo = async (filePath, filename) => {
 
 // API路由
 
+// 健康检查接口
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    imageRootSet: imageRootPath !== null,
+    projectName: currentProjectName
+  });
+});
+
 // 设置图片根目录
 app.post('/api/set-image-root', async (req, res) => {
   try {
     const { path: rootPath, projectName } = req.body;
     
-    if (!rootPath) {
-      return res.status(400).json({ error: '路径不能为空' });
+    if (!rootPath || !projectName) {
+      return res.status(400).json({ error: '路径和项目名称都是必需的' });
     }
 
     // 检查路径是否存在
     try {
-      const stats = await fs.stat(rootPath);
-      if (!stats.isDirectory()) {
-        return res.status(400).json({ error: '指定的路径不是一个文件夹' });
-      }
+      await fs.access(rootPath);
     } catch (error) {
-      return res.status(400).json({ error: '指定的路径不存在或无法访问' });
+      return res.status(400).json({ error: '指定的路径不存在' });
     }
 
     imageRootPath = rootPath;
-    currentProjectName = projectName || 'default';
-    console.log(`图片根目录已设置为: ${imageRootPath}`);
-    console.log(`项目名称已设置为: ${currentProjectName}`);
+    currentProjectName = projectName;
     
-    res.json({ success: true, path: imageRootPath, projectName: currentProjectName });
+    console.log(`图片根目录设置为: ${imageRootPath}`);
+    console.log(`项目名称设置为: ${currentProjectName}`);
+    
+    res.json({ 
+      success: true, 
+      path: imageRootPath, 
+      projectName: currentProjectName 
+    });
   } catch (error) {
     console.error('设置图片根目录失败:', error);
-    res.status(500).json({ error: '服务器内部错误' });
+    res.status(500).json({ error: '设置图片根目录失败' });
   }
 });
 
@@ -110,48 +121,69 @@ app.post('/api/set-image-root', async (req, res) => {
 app.get('/api/images', async (req, res) => {
   try {
     if (!imageRootPath) {
-      return res.json({ items: [], nextCursor: null });
+      return res.json({ items: [], nextCursor: null, total: 0, currentPage: 1, totalPages: 0 });
     }
 
-    const { cursor = '0', limit = '20' } = req.query;
+    const { cursor = '0', limit = '20', favUser } = req.query;
     const startIndex = parseInt(cursor, 10);
     const pageSize = parseInt(limit, 10);
 
-    // 读取目录中的所有文件
     const files = await fs.readdir(imageRootPath);
-    
-    // 过滤出媒体文件
-    const mediaFiles = files.filter(isMediaFile);
-    
-    // 按文件名排序（确保固定顺序）
+    let mediaFiles = files.filter(isMediaFile);
     mediaFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
-    // 分页处理
-    if (startIndex >= mediaFiles.length) {
-      return res.json({ items: [], nextCursor: null });
+    // 如果指定了收藏用户，过滤收藏的图片
+    if (favUser && currentProjectName) {
+      const favorites = await loadFavorites(currentProjectName);
+      const userFavorites = favorites[favUser] || [];
+      const favoritesSet = new Set(userFavorites);
+      mediaFiles = mediaFiles.filter(filename => favoritesSet.has(filename));
+
+      // 收藏模式下返回所有收藏图片，不分页
+      const mediaInfoPromises = mediaFiles.map(async (filename) => {
+        const filePath = path.join(imageRootPath, filename);
+        return await getMediaInfo(filePath, filename);
+      });
+
+      const medias = await Promise.all(mediaInfoPromises);
+      const validMedias = medias.filter(media => media !== null);
+
+      return res.json({
+        items: validMedias,
+        nextCursor: null,
+        total: validMedias.length,
+        currentPage: 1,
+        totalPages: 1
+      });
     }
 
-    const endIndex = startIndex + pageSize;
-    const paginatedFiles = mediaFiles.slice(startIndex, endIndex);
-
-    // 获取媒体信息
-    const mediaInfoPromises = paginatedFiles.map(async (filename) => {
+    // 正常分页模式 - 先获取所有有效媒体文件信息来计算准确的总数
+    const allMediaInfoPromises = mediaFiles.map(async (filename) => {
       const filePath = path.join(imageRootPath, filename);
-      // 只传递纯文件名，不包含任何路径信息
       return await getMediaInfo(filePath, filename);
     });
 
-    const medias = await Promise.all(mediaInfoPromises);
-    const validMedias = medias.filter(media => media !== null);
-
-    const nextCursor = endIndex < mediaFiles.length ? endIndex.toString() : null;
+    const allMedias = await Promise.all(allMediaInfoPromises);
+    const allValidMedias = allMedias.filter(media => media !== null);
+    
+    const totalValidFiles = allValidMedias.length;
+    const totalPages = Math.ceil(totalValidFiles / pageSize);
+    const currentPage = Math.floor(startIndex / pageSize) + 1;
+    
+    console.log(`分页调试: totalValidFiles=${totalValidFiles}, pageSize=${pageSize}, totalPages=${totalPages}, startIndex=${startIndex}, currentPage=${currentPage}`);
+    
+    // 获取当前页的数据
+    const paginatedValidMedias = allValidMedias.slice(startIndex, startIndex + pageSize);
+    
+    const nextCursor = startIndex + pageSize < totalValidFiles ? (startIndex + pageSize).toString() : null;
 
     res.json({
-      items: validMedias,
+      items: paginatedValidMedias,
       nextCursor,
-      total: mediaFiles.length
+      total: totalValidFiles,
+      currentPage,
+      totalPages
     });
-
   } catch (error) {
     console.error('获取图片列表失败:', error);
     res.status(500).json({ error: '获取图片列表失败' });
@@ -270,7 +302,7 @@ app.get('/api/favorites/:username', async (req, res) => {
       return res.status(400).json({ error: '未设置项目名称' });
     }
     
-    const username = req.params.username.toLowerCase();
+    const username = req.params.username; // 保持原始大小写
     const favorites = await loadFavorites(currentProjectName);
     const userFavorites = favorites[username] || [];
     
@@ -288,8 +320,8 @@ app.post('/api/favorites/:username/:imageId', async (req, res) => {
       return res.status(400).json({ error: '未设置项目名称' });
     }
     
-    const username = req.params.username.toLowerCase();
-    const imageId = req.params.imageId;
+    const username = req.params.username; // 保持原始大小写
+    const imageId = decodeURIComponent(req.params.imageId);
     
     const favorites = await loadFavorites(currentProjectName);
     if (!favorites[username]) {

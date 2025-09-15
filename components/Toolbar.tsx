@@ -11,6 +11,10 @@ interface ToolbarProps {
   onShowOnlyFavoritesChange: (show: boolean) => void;
   viewingUser: string;
   onViewingUserChange: (username: string) => void;
+  favoriteCount?: number;
+  currentImageIndex?: number;
+  totalImages?: number;
+  onImageJump?: (imageIndex: number) => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -22,9 +26,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onShowOnlyFavoritesChange,
   viewingUser,
   onViewingUserChange,
+  favoriteCount,
 }) => {
   const [allUsers, setAllUsers] = useState<string[]>([]);
-  
+
   useEffect(() => {
     api.getUsers().then(setAllUsers);
   }, []);
@@ -33,9 +38,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
     <header className="sticky top-0 bg-white/80 backdrop-blur-md z-10 shadow-sm p-3">
       <div className="container mx-auto flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <span className="font-bold text-lg text-gray-800">PIP 浏览器</span>
+          <span className="font-bold text-lg text-gray-800">PIP 数据筛选</span>
           <div className="text-sm text-gray-600">
             当前用户: <span className="font-semibold text-indigo-600">{user.username}</span>
+            {favoriteCount > 0 && (
+              <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full">
+                收藏 {favoriteCount}
+              </span>
+            )}
           </div>
         </div>
         
@@ -53,23 +63,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </select>
           </div>
 
-          {/* Favorites Toggle */}
-          <div className="flex items-center gap-2">
-            <label htmlFor="fav-toggle" className="text-sm font-medium text-gray-700 select-none">我的收藏</label>
-            <button
-              id="fav-toggle"
-              type="button"
-              onClick={() => onShowOnlyFavoritesChange(!showOnlyFavorites)}
-              className={`${showOnlyFavorites ? 'bg-indigo-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2`}
-              role="switch"
-              aria-checked={showOnlyFavorites}
-            >
-              <span
-                aria-hidden="true"
-                className={`${showOnlyFavorites ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-              />
-            </button>
-          </div>
           
           {/* View Others' Favorites */}
            <div className="flex items-center gap-2">
@@ -84,6 +77,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
               {allUsers.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
+
 
         </div>
 

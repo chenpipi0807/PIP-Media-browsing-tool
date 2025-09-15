@@ -20,6 +20,7 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
   const [columns, setColumns] = useState(5);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [viewingUser, setViewingUser] = useState('');
+  const [favoriteCount, setFavoriteCount] = useState(0);
   
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null);
 
@@ -46,19 +47,23 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
     }
   }, [isLoading, cursor, showOnlyFavorites, user.username, viewingUser]);
 
-  // Check if image root is set on component mount
+  // Check if image root is set and load favorite count on component mount
   useEffect(() => {
     const checkImageRoot = async () => {
       try {
         const rootSet = await api.isImageRootSet();
         setIsImageRootSet(rootSet);
+        
+        // Load favorite count for current user
+        const count = await api.getFavoriteCount(user.username);
+        setFavoriteCount(count);
       } catch (error) {
         console.error('检查图片根目录状态失败:', error);
         setIsImageRootSet(false);
       }
     };
     checkImageRoot();
-  }, []);
+  }, [user.username]);
 
   useEffect(() => {
     resetAndLoad();
@@ -73,10 +78,14 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
   }, [cursor, images.length, loadMoreImages, isImageRootSet]);
 
 
-  const handleFavoriteToggle = (imageId: string, isNowFavorited: boolean) => {
+  const handleFavoriteToggle = async (imageId: string, isNowFavorited: boolean) => {
     setImages(prevImages => prevImages.map(img => 
       img.id === imageId ? { ...img, isFavorited: isNowFavorited } : img
     ));
+
+    // Update favorite count
+    const newCount = await api.getFavoriteCount(user.username);
+    setFavoriteCount(newCount);
 
     // If viewing favorites and an item is unfavorited, remove it from the view
     if (showOnlyFavorites && !isNowFavorited) {
@@ -84,12 +93,13 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
     }
   };
 
+
   const handleShowOnlyFavoritesChange = (show: boolean) => {
     if (show) {
       setViewingUser(''); // Can't view other's favs and my favs at same time
     }
     setShowOnlyFavorites(show);
-  }
+  };
 
   const handleViewingUserChange = (username: string) => {
      if (username) {
@@ -136,6 +146,7 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
         onShowOnlyFavoritesChange={handleShowOnlyFavoritesChange}
         viewingUser={viewingUser}
         onViewingUserChange={handleViewingUserChange}
+        favoriteCount={favoriteCount}
       />
       <main>
         {error && <p className="text-center text-red-500">{error}</p>}
