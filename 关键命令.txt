@@ -3,7 +3,6 @@ npm -v
 npm install
 npm run server
 npm run dev
-npm run dev:full
 http://localhost:5173/
 taskkill /F /IM node.exe
 
@@ -16,7 +15,6 @@ netsh advfirewall firewall add rule name="PIP-Media-Backend" dir=in action=allow
 
 # 允许前端端口  
 netsh advfirewall firewall add rule name="PIP-Media-Frontend" dir=in action=allow protocol=TCP localport=5173
-
 
 
 
