@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "dev:full": "concurrently \"npm run server\" \"npm run dev\""
+    "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
+    "dev:lan": "concurrently \"npm run server\" \"vite --host 0.0.0.0\"",
+    "start:ngrok": "node scripts/start-with-ngrok.js",
+    "start:all": "node scripts/start-with-ngrok.js"
   },
   "dependencies": {
     "react-dom": "^19.1.1",

@@ -1,17 +1,31 @@
 import type { ImageItem, User, ImagesApiResponse } from '../types';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+// 动态获取API基础URL
+const getApiBaseUrl = () => {
+  const hostname = window.location.hostname;
+  // 如果是localhost或127.0.0.1，使用localhost
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
+  // 否则使用当前主机名
+  return `http://${hostname}:3001`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 const LOGGED_IN_USER_KEY = 'logged_in_user';
 
 // --- Private Helper Functions ---
 
-const getFavoritesForUser = (username: string): Set<string> => {
-  const favs = localStorage.getItem(`favorites_${username.toLowerCase()}`);
-  return favs ? new Set(JSON.parse(favs)) : new Set();
-};
-
-const setFavoritesForUser = (username: string, favorites: Set<string>): void => {
-  localStorage.setItem(`favorites_${username.toLowerCase()}`, JSON.stringify(Array.from(favorites)));
+const getFavoritesForUser = async (username: string): Promise<Set<string>> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/favorites/${username.toLowerCase()}`);
+    if (!response.ok) return new Set();
+    const data = await response.json();
+    return new Set(data.favorites || []);
+  } catch (error) {
+    console.error('获取收藏数据失败:', error);
+    return new Set();
+  }
 };
 
 const enrichImagesWithFavorites = (images: ImageItem[], favoritedIds: Set<string>): ImageItem[] => {
@@ -24,7 +38,7 @@ const enrichImagesWithFavorites = (images: ImageItem[], favoritedIds: Set<string
 // --- Public API Functions ---
 
 export const api = {
-  login: async (username: string, imageRoot?: string): Promise<User> => {
+  login: async (username: string, imageRoot?: string, projectName?: string): Promise<User> => {
     const normalizedUsername = username.trim().toLowerCase();
     if (!normalizedUsername) throw new Error("用户名不能为空。");
 
@@ -34,12 +48,12 @@ export const api = {
     // 如果是管理员且提供了图片根目录，设置后端的图片根目录
     if (isAdmin && imageRoot) {
       try {
-        const response = await fetch(`${API_BASE_URL}/set-image-root`, {
+        const response = await fetch(`${API_BASE_URL}/api/set-image-root`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ path: imageRoot }),
+          body: JSON.stringify({ path: imageRoot, projectName: projectName }),
         });
 
         if (!response.ok) {
@@ -69,7 +83,7 @@ export const api = {
 
   isImageRootSet: async (): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/health`);
+      const response = await fetch(`${API_BASE_URL}/api/health`);
       if (!response.ok) return false;
       
       const data = await response.json();
@@ -98,7 +112,7 @@ export const api = {
 
       // 从后端获取图片列表
       const response = await fetch(
-        `${API_BASE_URL}/images?cursor=${cursor || '0'}&limit=${limit}`
+        `${API_BASE_URL}/api/images?cursor=${cursor || '0'}&limit=${limit}`
       );
 
       if (!response.ok) {
@@ -112,15 +126,19 @@ export const api = {
       const viewingUser = favUser || api.getCurrentUser()?.username;
       if (!viewingUser) throw new Error("No user context for favorites.");
 
-      const userFavorites = getFavoritesForUser(viewingUser);
+      const userFavorites = await getFavoritesForUser(viewingUser);
       
       // 如果是查看特定用户的收藏，过滤出收藏的图片
       if (favUser) {
         sourceImages = sourceImages.filter((img: ImageItem) => userFavorites.has(img.id));
       }
 
-      // 为图片添加收藏状态
-      const enrichedItems = enrichImagesWithFavorites(sourceImages, userFavorites);
+      // 为图片添加收藏状态并修复URL
+      const itemsWithFullUrls = sourceImages.map((img: ImageItem) => ({
+        ...img,
+        url: img.url.startsWith('http') ? img.url : `${API_BASE_URL}${img.url}`
+      }));
+      const enrichedItems = enrichImagesWithFavorites(itemsWithFullUrls, userFavorites);
       
       return { 
         items: enrichedItems, 
@@ -137,33 +155,35 @@ export const api = {
     const user = api.getCurrentUser();
     if (!user) throw new Error("User not logged in.");
 
-    const favorites = getFavoritesForUser(user.username);
-    let isFavorited: boolean;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favorites/${user.username.toLowerCase()}/${encodeURIComponent(imageId)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (favorites.has(imageId)) {
-      favorites.delete(imageId);
-      isFavorited = false;
-    } else {
-      favorites.add(imageId);
-      isFavorited = true;
+      if (!response.ok) {
+        throw new Error('切换收藏状态失败');
+      }
+
+      const data = await response.json();
+      return { isFavorited: data.isFavorited };
+    } catch (error) {
+      console.error('切换收藏状态失败:', error);
+      throw error;
     }
-
-    setFavoritesForUser(user.username, favorites);
-    return { isFavorited };
   },
 
   getUsers: async (): Promise<string[]> => {
-    const users = new Set<string>();
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('favorites_')) {
-            users.add(key.replace('favorites_', ''));
-        }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.users || [];
+    } catch (error) {
+      console.error('获取用户列表失败:', error);
+      return [];
     }
-    const currentUser = api.getCurrentUser();
-    if (currentUser) {
-        users.add(currentUser.username.toLowerCase());
-    }
-    return Array.from(users).sort();
   },
 };

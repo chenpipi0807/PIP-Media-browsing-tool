@@ -9,6 +9,7 @@ interface LoginPageProps {
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [imageRoot, setImageRoot] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isImageRootSet, setIsImageRootSet] = useState<boolean | null>(null);
@@ -44,12 +45,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       setError('管理员必须提供图片根目录路径。');
       return;
     }
+    if (showImageRootInput && !projectName.trim()) {
+      setError('管理员必须提供项目名称。');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const user = await api.login(username, imageRoot);
+      const user = await api.login(username, imageRoot, projectName);
       onLogin(user);
     } catch (err) {
       setError(err instanceof Error ? err.message : '发生未知错误。');
@@ -81,19 +86,35 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </div>
 
           {showImageRootInput && (
-            <div className="transition-all duration-500">
-              <label htmlFor="imageRoot" className="block text-sm font-medium text-gray-700">
-                设置本地图片根目录
-              </label>
-              <input
-                id="imageRoot"
-                type="text"
-                value={imageRoot}
-                onChange={(e) => setImageRoot(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="例如: C:\Users\YourUser\Pictures"
-              />
-               <p className="text-xs text-gray-500 mt-1">此为管理员一次性设置。</p>
+            <div className="transition-all duration-500 space-y-4">
+              <div>
+                <label htmlFor="projectName" className="block text-sm font-medium text-gray-700">
+                  项目名称
+                </label>
+                <input
+                  id="projectName"
+                  type="text"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="例如: 我的照片集"
+                />
+                <p className="text-xs text-gray-500 mt-1">用于标识项目，收藏数据将保存为 项目名.json</p>
+              </div>
+              <div>
+                <label htmlFor="imageRoot" className="block text-sm font-medium text-gray-700">
+                  设置本地图片根目录
+                </label>
+                <input
+                  id="imageRoot"
+                  type="text"
+                  value={imageRoot}
+                  onChange={(e) => setImageRoot(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="例如: C:\Users\YourUser\Pictures"
+                />
+                <p className="text-xs text-gray-500 mt-1">此为管理员一次性设置。</p>
+              </div>
             </div>
           )}
 

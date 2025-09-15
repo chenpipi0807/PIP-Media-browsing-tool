@@ -24,13 +24,19 @@ const SUPPORTED_MEDIA_EXTENSIONS = [
 
 // 中间件
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://127.0.0.1:5174', 'http://127.0.0.1:5175'],
+  origin: [
+    'http://localhost:5173', 'http://127.0.0.1:5173', 
+    'http://localhost:5174', 'http://localhost:5175', 
+    'http://127.0.0.1:5174', 'http://127.0.0.1:5175',
+    'http://10.250.9.82:5173', 'http://10.250.9.82:5174', 'http://10.250.9.82:5175'
+  ],
   credentials: true
 }));
 app.use(express.json());
 
-// 存储用户设置的图片根目录
-let imageRootPath = '';
+// 全局变量
+let imageRootPath = null;
+let currentProjectName = null;
 
 // 工具函数：检查文件是否为媒体文件
 const isMediaFile = (filename) => {
@@ -53,7 +59,7 @@ const getMediaInfo = async (filePath, filename) => {
     return {
       id: filename,
       name: filename,
-      url: `http://localhost:3001/api/media/${encodeURIComponent(filename)}`,
+      url: `/api/media/${encodeURIComponent(filename)}`,
       width: 300, // 默认宽度
       height: 200, // 默认高度
       isFavorited: false, // 将由前端根据用户收藏状态设置
@@ -72,7 +78,7 @@ const getMediaInfo = async (filePath, filename) => {
 // 设置图片根目录
 app.post('/api/set-image-root', async (req, res) => {
   try {
-    const { path: rootPath } = req.body;
+    const { path: rootPath, projectName } = req.body;
     
     if (!rootPath) {
       return res.status(400).json({ error: '路径不能为空' });
@@ -89,9 +95,11 @@ app.post('/api/set-image-root', async (req, res) => {
     }
 
     imageRootPath = rootPath;
+    currentProjectName = projectName || 'default';
     console.log(`图片根目录已设置为: ${imageRootPath}`);
+    console.log(`项目名称已设置为: ${currentProjectName}`);
     
-    res.json({ success: true, path: imageRootPath });
+    res.json({ success: true, path: imageRootPath, projectName: currentProjectName });
   } catch (error) {
     console.error('设置图片根目录失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
@@ -129,6 +137,7 @@ app.get('/api/images', async (req, res) => {
     // 获取媒体信息
     const mediaInfoPromises = paginatedFiles.map(async (filename) => {
       const filePath = path.join(imageRootPath, filename);
+      // 只传递纯文件名，不包含任何路径信息
       return await getMediaInfo(filePath, filename);
     });
 
@@ -227,18 +236,123 @@ app.get('/api/media/:filename', async (req, res) => {
   }
 });
 
+// 收藏数据管理
+const getFavoritesFilePath = (projectName) => {
+  return path.join(__dirname, `${projectName || 'default'}.json`);
+};
+
+const loadFavorites = async (projectName) => {
+  try {
+    const filePath = getFavoritesFilePath(projectName);
+    const data = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // 文件不存在时返回空对象
+    return {};
+  }
+};
+
+const saveFavorites = async (projectName, favorites) => {
+  try {
+    const filePath = getFavoritesFilePath(projectName);
+    await fs.writeFile(filePath, JSON.stringify(favorites, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('保存收藏数据失败:', error);
+    return false;
+  }
+};
+
+// 获取用户收藏
+app.get('/api/favorites/:username', async (req, res) => {
+  try {
+    if (!currentProjectName) {
+      return res.status(400).json({ error: '未设置项目名称' });
+    }
+    
+    const username = req.params.username.toLowerCase();
+    const favorites = await loadFavorites(currentProjectName);
+    const userFavorites = favorites[username] || [];
+    
+    res.json({ favorites: userFavorites });
+  } catch (error) {
+    console.error('获取收藏数据失败:', error);
+    res.status(500).json({ error: '获取收藏数据失败' });
+  }
+});
+
+// 切换收藏状态
+app.post('/api/favorites/:username/:imageId', async (req, res) => {
+  try {
+    if (!currentProjectName) {
+      return res.status(400).json({ error: '未设置项目名称' });
+    }
+    
+    const username = req.params.username.toLowerCase();
+    const imageId = req.params.imageId;
+    
+    const favorites = await loadFavorites(currentProjectName);
+    if (!favorites[username]) {
+      favorites[username] = [];
+    }
+    
+    const userFavorites = favorites[username];
+    const index = userFavorites.indexOf(imageId);
+    let isFavorited;
+    
+    if (index > -1) {
+      // 取消收藏
+      userFavorites.splice(index, 1);
+      isFavorited = false;
+    } else {
+      // 添加收藏
+      userFavorites.push(imageId);
+      isFavorited = true;
+    }
+    
+    const saved = await saveFavorites(currentProjectName, favorites);
+    if (!saved) {
+      return res.status(500).json({ error: '保存收藏数据失败' });
+    }
+    
+    res.json({ isFavorited });
+  } catch (error) {
+    console.error('切换收藏状态失败:', error);
+    res.status(500).json({ error: '切换收藏状态失败' });
+  }
+});
+
+// 获取所有用户列表
+app.get('/api/users', async (req, res) => {
+  try {
+    if (!currentProjectName) {
+      return res.status(400).json({ error: '未设置项目名称' });
+    }
+    
+    const favorites = await loadFavorites(currentProjectName);
+    const users = Object.keys(favorites);
+    
+    res.json({ users });
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+    res.status(500).json({ error: '获取用户列表失败' });
+  }
+});
+
 // 健康检查
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     imageRootSet: !!imageRootPath,
-    imageRootPath: imageRootPath || null
+    imageRootPath: imageRootPath || null,
+    projectName: currentProjectName || null
   });
 });
 
 // 启动服务器
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`图片浏览服务器已启动，端口: ${PORT}`);
-  console.log(`API地址: http://localhost:${PORT}`);
+  console.log(`本地访问: http://localhost:${PORT}`);
+  console.log(`局域网访问: http://10.250.9.82:${PORT}`);
   console.log('等待前端设置图片根目录...');
 });
