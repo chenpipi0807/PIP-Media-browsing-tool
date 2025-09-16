@@ -2,10 +2,11 @@
 
 一个基于 React + Node.js 的本地媒体数据筛选，仿照 Pinterest 的瀑布流布局。支持图片和视频文件浏览、多用户收藏、管理员路径配置、无密码登录和实时收藏持久化，非常适合在本地网络环境中快速搭建个人或家庭的媒体分享墙。
 
-<img width="3816" height="1998" alt="image" src="https://github.com/user-attachments/assets/dfce6adc-eb1e-4ab1-b9a7-d41f835ad618" />
+<img width="3807" height="1895" alt="image" src="https://github.com/user-attachments/assets/35aec131-5afe-4d38-9672-61fef0738206" />
 
 <img width="3165" height="1587" alt="image" src="https://github.com/user-attachments/assets/e83c53b5-4182-4918-b0e7-6afee15bc78e" />
 
+<img width="3810" height="1884" alt="image" src="https://github.com/user-attachments/assets/502ac912-af07-4a79-b484-9ac5fbb70682" />
 
 
 ## ✨ 功能特性
