@@ -15,6 +15,7 @@ interface ToolbarProps {
   currentImageIndex?: number;
   totalImages?: number;
   onImageJump?: (imageIndex: number) => void;
+  pageSize?: number;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -27,12 +28,38 @@ const Toolbar: React.FC<ToolbarProps> = ({
   viewingUser,
   onViewingUserChange,
   favoriteCount,
+  currentImageIndex,
+  totalImages,
+  onImageJump,
+  pageSize = 20,
 }) => {
   const [allUsers, setAllUsers] = useState<string[]>([]);
+  const [indexInput, setIndexInput] = useState<string>('');
+  const [pageInput, setPageInput] = useState<string>('');
 
   useEffect(() => {
     api.getUsers().then(setAllUsers);
   }, []);
+
+  const jumpingDisabled = !!showOnlyFavorites || !!viewingUser || !onImageJump;
+  const totalPages = totalImages ? Math.max(1, Math.ceil(totalImages / pageSize)) : undefined;
+  const canJumpIndex = !jumpingDisabled && indexInput !== '' && (!totalImages || (Number(indexInput) >= 1 && Number(indexInput) <= totalImages));
+  const canJumpPage = !jumpingDisabled && pageInput !== '' && (!totalPages || (Number(pageInput) >= 1 && Number(pageInput) <= totalPages));
+
+  const handleDoJumpIndex = () => {
+    if (!onImageJump) return;
+    const n = Number(indexInput);
+    if (!Number.isFinite(n) || n < 1) return;
+    onImageJump(n - 1);
+  };
+
+  const handleDoJumpPage = () => {
+    if (!onImageJump) return;
+    const p = Number(pageInput);
+    if (!Number.isFinite(p) || p < 1) return;
+    const start = (p - 1) * pageSize;
+    onImageJump(start);
+  };
 
   return (
     <header className="sticky top-0 bg-white/80 backdrop-blur-md z-10 shadow-sm p-3">
@@ -78,6 +105,48 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </select>
           </div>
 
+          {/* Jump Controls */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">跳到索引:</label>
+            <input
+              type="number"
+              min={1}
+              value={indexInput}
+              onChange={(e) => setIndexInput(e.target.value)}
+              placeholder="如 1000"
+              className="w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 px-2"
+              disabled={jumpingDisabled}
+            />
+            <button
+              onClick={handleDoJumpIndex}
+              disabled={!canJumpIndex}
+              className={`px-3 py-1.5 rounded-md text-sm font-semibold ${canJumpIndex ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+            >跳转</button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">跳到页:</label>
+            <input
+              type="number"
+              min={1}
+              value={pageInput}
+              onChange={(e) => setPageInput(e.target.value)}
+              placeholder="如 50"
+              className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 px-2"
+              disabled={jumpingDisabled}
+            />
+            <button
+              onClick={handleDoJumpPage}
+              disabled={!canJumpPage}
+              className={`px-3 py-1.5 rounded-md text-sm font-semibold ${canJumpPage ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+            >跳转</button>
+          </div>
+
+          {typeof totalImages === 'number' && (
+            <div className="text-xs text-gray-500">
+              共 {totalImages} 项{totalPages ? ` | 每页 ${pageSize} | 共 ${totalPages} 页` : ''}
+            </div>
+          )}
 
         </div>
 

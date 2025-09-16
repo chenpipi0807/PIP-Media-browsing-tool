@@ -16,6 +16,7 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isImageRootSet, setIsImageRootSet] = useState<boolean | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
   
   const [columns, setColumns] = useState(5);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
@@ -24,21 +25,26 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
   
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null);
 
+  const PAGE_SIZE = 20;
+
   const resetAndLoad = useCallback(() => {
     setImages([]);
     setCursor('0');
     setError(null);
+    setTotal(null);
   }, []);
 
-  const loadMoreImages = useCallback(async () => {
-    if (isLoading || cursor === null) return;
+  const loadMoreImages = useCallback(async (startCursor?: string | null) => {
+    const effectiveCursor = startCursor !== undefined ? startCursor : cursor;
+    if (isLoading || effectiveCursor === null) return;
     setIsLoading(true);
 
     try {
       const favUser = showOnlyFavorites ? user.username : viewingUser;
-      const response = await api.getImages({ cursor, limit: 20, favUser });
+      const response = await api.getImages({ cursor: effectiveCursor, limit: PAGE_SIZE, favUser });
       setImages(prev => [...prev, ...response.items]);
       setCursor(response.nextCursor);
+      if (typeof response.total === 'number') setTotal(response.total);
     } catch (err) {
       setError('加载图片失败。');
       console.error(err);
@@ -72,10 +78,27 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
   useEffect(() => {
     // This effect triggers the initial load and subsequent loads when filters change
     if (cursor === '0' && images.length === 0 && isImageRootSet) {
-      loadMoreImages();
+      loadMoreImages('0');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor, images.length, loadMoreImages, isImageRootSet]);
+
+  // Jump handlers
+  const handleJumpToIndex = useCallback((index: number) => {
+    if (index < 0) return;
+    if (total !== null && index >= total) return;
+    setImages([]);
+    setError(null);
+    setCursor(index.toString());
+    // Immediately load from target index
+    loadMoreImages(index.toString());
+  }, [loadMoreImages, total]);
+
+  const handleJumpToPage = useCallback((page: number) => {
+    if (page < 1) return;
+    const start = (page - 1) * PAGE_SIZE;
+    handleJumpToIndex(start);
+  }, [handleJumpToIndex]);
 
 
   const handleFavoriteToggle = async (imageId: string, isNowFavorited: boolean) => {
@@ -147,6 +170,9 @@ const ImageBrowserPage: React.FC<ImageBrowserPageProps> = ({ user, onLogout }) =
         viewingUser={viewingUser}
         onViewingUserChange={handleViewingUserChange}
         favoriteCount={favoriteCount}
+        currentImageIndex={images.length}
+        totalImages={total ?? undefined}
+        onImageJump={handleJumpToIndex}
       />
       <main>
         {error && <p className="text-center text-red-500">{error}</p>}

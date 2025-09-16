@@ -154,7 +154,10 @@ export const api = {
       
       return { 
         items: enrichedItems, 
-        nextCursor: favUser ? null : data.nextCursor // 收藏视图不支持分页
+        nextCursor: favUser ? null : data.nextCursor, // 收藏视图不支持分页
+        total: data.total,
+        currentPage: data.currentPage,
+        totalPages: data.totalPages,
       };
 
     } catch (error) {
